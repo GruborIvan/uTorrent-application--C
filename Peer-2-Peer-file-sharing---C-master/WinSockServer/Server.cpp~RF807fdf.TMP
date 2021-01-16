@@ -1,0 +1,609 @@
+#include <ws2tcpip.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+
+#define DEFAULT_BUFLEN 512
+#define DEFAULT_PORT "27016"
+
+#define FILE_SIZE 2008
+#define FILE_NAME_SIZE 24
+
+// Parametri koji se salju u ClientThread iz AcceptClients, kad se poveze novi klijent..
+typedef struct Parameters
+{
+    SOCKET socket;
+    int clientId;
+} Parameters;
+
+typedef struct Klijent
+{
+    int clientId;
+    SOCKET socket;
+    int port;
+    struct Klijent* next;
+} Klijent;
+
+struct Klijent* clientList = NULL;
+
+typedef struct ClientFile
+{
+    struct Klijent *klijent;
+    int fileOd;
+}ClientFile;
+
+typedef struct DictionaryFile
+{
+    char fileName[FILE_NAME_SIZE];
+    struct ClientFile *clientFiles[5];
+    struct DictionaryFile* next;
+} DictionaryFile;
+
+typedef struct FileResponse
+{
+    int responseCode;
+    struct DictionaryFile file;
+    char fileContent[FILE_SIZE];
+};
+
+struct DictionaryFile* dictionaryStart = NULL;
+
+int clientIdAutoincrement = 1;
+
+bool InitializeWindowsSockets();
+
+// Client list functions...
+int DodavanjeKlijenataUListu(SOCKET socket, int port);
+Klijent* GetClientById(int clientId);
+void RemoveClientFromList(int clientId);
+
+// Dictionary functions...
+bool FileStoredInDictionary(char* fileName);
+DictionaryFile* GetClientFilesForFile(char* fileName);
+int AddNewFileToDictionary(char* fileName, int clientId);
+int InsertInDictionary(char* fileName, int clientId);
+void RemoveClientFromDictionaryIfConnCloses(int clientId);
+
+// Socket used for listening for clients
+SOCKET listenSocket = INVALID_SOCKET;
+
+// Accepted client socket..
+SOCKET acceptedSocket = INVALID_SOCKET;
+
+char recvbuf[DEFAULT_BUFLEN];
+unsigned long mode = 1;
+int socketCount = 0;
+
+CRITICAL_SECTION csq;
+
+DWORD dword;
+HANDLE handle;
+
+DWORD dwordList[20];
+HANDLE handleList[20];
+
+int clientIdAutoIncrement = 0;
+
+DWORD WINAPI ClientThread(LPVOID lpParam)
+{
+    Parameters parameters = *(Parameters*)lpParam;
+
+    int bytesRead = 0;
+    char sendfileBuffer[FILE_SIZE];
+    int part;
+
+    int iResult;
+    fd_set readfds;
+    timeval timeVal;
+    timeVal.tv_sec = 1;
+    timeVal.tv_usec = 0;
+
+    while (1)
+    {
+        FD_ZERO(&readfds);
+        FD_SET(parameters.socket,&readfds);
+
+        iResult = select(0, &readfds, NULL, NULL, &timeVal);
+        if (iResult == 0) 
+        {
+            continue;
+        }
+        else if (iResult == SOCKET_ERROR)
+        {
+            printf("Greska select ClientThread..\n");
+            // Desila se greska prilikom poziva funkcije..
+        }
+        else
+        {
+            // Receive data until the client shuts down the connection
+            iResult = recv(parameters.socket, recvbuf, DEFAULT_BUFLEN, 0);
+            if (iResult > 0)
+            {
+                printf("Message received from client: %s.\n", recvbuf);
+
+                // Naziv fajla se nalazi u recvbuf..
+                char fileUrl[200] = "D:\\Industrijski Komunikacioni Protokoli\\Mrezno\\UDP_TCP\\WinSock_TCP_Blocking\\WinSockServer\\";
+                strcat_s(fileUrl, recvbuf);
+                printf("Url trazenog fajla: %s", fileUrl);
+
+                FileResponse response;
+
+                if (FileStoredInDictionary(recvbuf) == true)
+                {
+                    part = InsertInDictionary(recvbuf,parameters.clientId);
+                }
+                else
+                {
+                    part = AddNewFileToDictionary(recvbuf,parameters.clientId);
+
+                    response.responseCode = 5;
+                    response.file = *GetClientFilesForFile(recvbuf);
+                    //response
+                }
+
+                sendfileBuffer[FILE_SIZE] = *ReadFile(recvbuf);
+               
+
+                // Treba da se posalje ceo fajl, i deo fajla koji treba da se cuva na klijentima...
+
+
+                // Send until all bytes are sent..
+                do
+                {
+                    // Send file across network & check whether it's sucessfully sent.
+                    iResult = send(parameters.socket, (char*)sendfileBuffer, FILE_SIZE, 0);
+
+                    if (iResult == SOCKET_ERROR)
+                    {
+                        printf("send failed with error: %d\n", WSAGetLastError());
+                        closesocket(parameters.socket);
+                        WSACleanup();
+                        return 1;
+                    }
+
+                    bytesRead += iResult;
+                } 
+                while (bytesRead < FILE_SIZE);
+
+                // partition - Koji deo fajla da se cuva na klijentu (0-4)..
+                //int partition = UpdateDictionary(recvbuf, parameters.clientId);
+            }
+            else if (iResult == 0)
+            {
+                // OVDE SE GASI KLIJENT...
+                // connection was closed gracefully
+                printf("Connection with client closed.\n");
+                closesocket(acceptedSocket);
+                return 1;
+            }
+            else
+            {
+                // Remove client from list when socket closes...
+                if (WSAGetLastError() == 10054 || WSAGetLastError() == 10038)
+                {
+                    printf("Klijent se ugasio");
+
+
+
+                    RemoveClientFromDictionaryIfConnCloses(parameters.clientId);
+                    RemoveClientFromList(parameters.clientId);
+                }
+                // there was an error during recv
+                printf("recv failed with error: %d\n", WSAGetLastError());
+                closesocket(parameters.socket);
+                return 0;
+            }
+        }
+        Sleep(500);
+    }
+
+    return 0;
+}
+
+DWORD WINAPI AcceptClients(LPVOID lpParam)
+{
+    int iResult;
+
+    fd_set readfds;
+    timeval timeVal;
+    timeVal.tv_sec = 1;
+    timeVal.tv_usec = 0;
+
+    int port = 2230;
+
+    while (1)
+    {
+        FD_ZERO(&readfds);
+        FD_SET(listenSocket, &readfds);
+
+        iResult = select(0, &readfds, NULL, NULL, &timeVal);
+        if (iResult == 0){
+            continue;
+        }
+        else if (iResult == SOCKET_ERROR) {
+            printf("Desila se greska prilikom poziva Thread-a..\n");
+        }
+        else 
+        {
+            acceptedSocket = accept(listenSocket, NULL, NULL);
+
+            if (acceptedSocket == INVALID_SOCKET)
+            {
+                printf("accept failed with error: %d\n", WSAGetLastError());
+                closesocket(listenSocket);
+                WSACleanup();
+                return 1;
+            }
+            else
+            {
+                iResult = ioctlsocket(listenSocket, FIONBIO, &mode);
+
+                int clientId = DodavanjeKlijenataUListu(acceptedSocket,port);
+                port++;
+
+                Parameters parameters;
+                parameters.socket = acceptedSocket;
+                parameters.clientId = clientId;
+
+                handleList[socketCount] = CreateThread(NULL, 0, &ClientThread, &parameters, 0, &dwordList[socketCount]);
+                socketCount++;
+            }
+
+        }
+        Sleep(500);
+    }
+
+}
+
+int  main(void) 
+{
+
+    // variable used to store function return value
+    int iResult;
+    // Buffer used for storing incoming data
+
+    
+    if(InitializeWindowsSockets() == false)
+    {
+		// we won't log anything since it will be logged
+		// by InitializeWindowsSockets() function
+		return 1;
+    }
+    
+    // Prepare address information structures
+    addrinfo *resultingAddress = NULL;
+    addrinfo hints;
+
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_INET;       // IPv4 address
+    hints.ai_socktype = SOCK_STREAM; // Provide reliable data streaming
+    hints.ai_protocol = IPPROTO_TCP; // Use TCP protocol
+    hints.ai_flags = AI_PASSIVE;     // 
+
+    // Resolve the server address and port
+    iResult = getaddrinfo(NULL, DEFAULT_PORT, &hints, &resultingAddress);
+    if ( iResult != 0 )
+    {
+        printf("getaddrinfo failed with error: %d\n", iResult);
+        WSACleanup();
+        return 1;
+    }
+
+    // Create a SOCKET for connecting to server
+    listenSocket = socket(AF_INET,      // IPv4 address famly
+                          SOCK_STREAM,  // stream socket
+                          IPPROTO_TCP); // TCP
+
+    if (listenSocket == INVALID_SOCKET)
+    {
+        printf("socket failed with error: %ld\n", WSAGetLastError());
+        freeaddrinfo(resultingAddress);
+        WSACleanup();
+        return 1;
+    }
+
+    /////////////////// Postavljanje u neblokirajuci rezim ////////////////////////////////
+    iResult = ioctlsocket(listenSocket, FIONBIO, &mode);
+    //////////////////////////////////////////////////////////////////////////////////////
+
+    // Setup the TCP listening socket - bind port number and local address 
+    // to socket
+    iResult = bind( listenSocket, resultingAddress->ai_addr, (int)resultingAddress->ai_addrlen);
+    if (iResult == SOCKET_ERROR)
+    {
+        printf("bind failed with error: %d\n", WSAGetLastError());
+        freeaddrinfo(resultingAddress);
+        closesocket(listenSocket);
+        WSACleanup();
+        return 1;
+    }
+
+    // Since we don't need resultingAddress any more, free it
+    freeaddrinfo(resultingAddress);
+
+    // Set listenSocket in listening mode
+    iResult = listen(listenSocket, SOMAXCONN);
+    if (iResult == SOCKET_ERROR)
+    {
+        printf("listen failed with error: %d\n", WSAGetLastError());
+        closesocket(listenSocket);
+        WSACleanup();
+        return 1;
+    }
+
+	printf("Server initialized, waiting for clients.\n");
+
+    //////////////////////////////////////////////////////////////////
+    handle = CreateThread(NULL, 0, &AcceptClients, NULL, 0, &dword);
+    //////////////////////////////////////////////////////////////////
+
+    while (1)
+    {
+
+    }
+
+    // shutdown the connection since we're done
+    iResult = shutdown(acceptedSocket, SD_SEND);
+    if (iResult == SOCKET_ERROR)
+    {
+        printf("shutdown failed with error: %d\n", WSAGetLastError());
+        closesocket(acceptedSocket);
+        WSACleanup();
+        return 1;
+    }
+
+    // cleanup
+    closesocket(listenSocket);
+    closesocket(acceptedSocket);
+    WSACleanup();
+
+    return 0;
+}
+
+// -- FUNCTIONS --
+
+char* ReadFile(char* fileUrl)
+{
+    FILE* fptr;
+    char sendfileBuffer[FILE_SIZE];
+    // ----------------------------------------------------------------------------------
+               // CITANJE SADRZAJA FAJLA..
+    if ((fptr = fopen(fileUrl, "rb")) == NULL)
+    {
+        printf_s("Unable to open file.\n");
+        printf_s("Cannot locate file.\n");
+        return "Error";
+    }
+
+    const size_t fileSize = fread(sendfileBuffer, FILE_SIZE, 1, fptr);
+    fclose(fptr);
+    return sendfileBuffer;
+}
+
+bool InitializeWindowsSockets()
+{
+    WSADATA wsaData;
+	// Initialize windows sockets library for this process
+    if (WSAStartup(MAKEWORD(2,2), &wsaData) != 0)
+    {
+        printf("WSAStartup failed with error: %d\n", WSAGetLastError());
+        return false;
+    }
+	return true;
+}
+
+
+int DodavanjeKlijenataUListu(SOCKET socket, int port)
+{
+    // Iterator..
+    Klijent* pok = clientList;
+
+    // Inicijalizacija novog Node-a.
+    Klijent* newClient = (Klijent*)malloc(sizeof(Klijent));
+    newClient->clientId = clientIdAutoincrement;
+    newClient->socket = socket;
+    newClient->port = port;
+    newClient->next = NULL;
+
+    // Client Id increment..
+    clientIdAutoincrement = clientIdAutoincrement++;
+    int num = 1;
+
+    printf("\n-------------------------------------------------\n");
+    if (clientList == NULL)
+    {
+        clientList = newClient;
+        printf("Cliend Id: %d  Port: %d\n",clientList->clientId, clientList->port);
+    }
+    else
+    {
+        while (pok->next != NULL)
+        {
+            printf("Cliend Id: %d  Port: %d\n", pok->clientId, pok->port);
+            pok = pok->next;
+            num++;
+        }
+
+        pok->next = newClient;
+        printf("Cliend Id: %d  Port: %d\n", pok->clientId, pok->port);
+        printf("Cliend Id: %d  Port: %d\n", newClient->clientId, newClient->port);
+        num++;
+        //free(pok);
+    }
+    printf("\n Broj povezanih klijenata: %d\n", num);
+    printf("\n-------------------------------------------------\n");
+    return newClient->clientId;
+}
+
+Klijent* GetClientById(int clientId)
+{
+    Klijent* pok = clientList;
+
+    while (pok != NULL)
+    {
+        if (pok->clientId == clientId)
+        {
+            return pok;
+        }
+        pok = pok->next;
+    }
+    return pok;
+}
+
+int AddNewFileToDictionary(char *fileName,int clientId)
+{
+    ClientFile* cfile = (ClientFile*)malloc(sizeof(ClientFile));
+    cfile->klijent = GetClientById(clientId);
+    cfile->fileOd = 0;
+
+    DictionaryFile* newDict = (DictionaryFile*)malloc(sizeof(DictionaryFile));
+    strcpy_s(newDict->fileName,fileName);
+
+    for (int i = 0; i < 5; i++) {
+        newDict->clientFiles[i] = NULL;
+    }
+
+    newDict->clientFiles[0] = cfile;
+    newDict->next = NULL;
+    
+    DictionaryFile* pok = dictionaryStart;
+
+    if (pok == NULL)
+    {
+        dictionaryStart = newDict;
+    }
+    else
+    {
+        while (pok->next != NULL)
+        {
+            pok = pok->next;
+        }
+        pok->next = newDict;
+    }
+    printf("\n File: %s - Upisan u dictionary [1 Klijent] \n",newDict->fileName);
+    return 1;
+}
+
+bool FileStoredInDictionary(char *fileName)
+{
+    if (dictionaryStart == NULL)
+    {
+        return false;
+    }
+
+    DictionaryFile* pok = dictionaryStart;
+
+    while (pok != NULL)
+    {
+        if (strcmp(pok->fileName, fileName) == NULL)
+        {
+            return true;
+        }
+        pok = pok->next;
+    }
+
+    return false;
+}
+
+int InsertInDictionary(char* fileName, int clientId)
+{
+    int part = 1;
+    printf("Dodavanje %s u Dictionary",fileName);
+
+    DictionaryFile* dictionaryEntity = GetClientFilesForFile(fileName);
+
+    ClientFile* cf = (ClientFile*)malloc(sizeof(ClientFile));
+    cf->klijent = GetClientById(clientId);
+
+    for (int i = 0; i < 5; i++)
+    {
+        if (dictionaryEntity->clientFiles[i] == NULL)
+        {
+            cf->fileOd = i;
+            dictionaryEntity->clientFiles[i] = cf;
+            part = i + 1;
+            break;
+        }
+    }
+    return part;
+}
+
+void RemoveClientFromList(int clientId)
+{
+    Klijent* itr = clientList;
+    Klijent* pok = clientList->next;
+
+    if (clientList->clientId == clientId)
+    {
+        free(pok);
+    }
+
+    else
+    {
+        while (itr->next != NULL)
+        {
+            if (itr->next->clientId == clientId)
+            {
+                itr->next = pok->next;
+                free(pok);
+                break;
+            }
+            else
+            {
+                itr = pok;
+                pok = pok->next;
+            }
+        }
+    }
+
+}
+
+DictionaryFile* GetClientFilesForFile(char* fileName)
+{
+    DictionaryFile* pok = dictionaryStart;
+
+    if (pok == NULL) 
+    {
+        return pok;
+    }
+
+    while (pok != NULL)
+    {
+        if (strcmp(pok->fileName, fileName) == 0)
+        {
+            return pok;
+        }
+        pok = pok->next;
+    }
+
+    return pok;
+}
+
+void RemoveClientFromDictionaryIfConnCloses(int clientId)
+{
+    DictionaryFile* pok = dictionaryStart;
+
+    if (pok == NULL) {
+        return;
+    }
+
+    while (pok != NULL)
+    {
+        for (int i = 0; i < 5; i++)
+        {
+            // Ako se kod klijenta nalazi neki deo fajla...
+            if (pok->clientFiles[i]->klijent->clientId == clientId)
+            {
+                for (; i < 4; i++)
+                {
+                    pok->clientFiles[i] = pok->clientFiles[i + 1];
+                    break;
+                }
+                break;
+            }
+        }
+
+        pok = pok->next;
+    }
+
+}

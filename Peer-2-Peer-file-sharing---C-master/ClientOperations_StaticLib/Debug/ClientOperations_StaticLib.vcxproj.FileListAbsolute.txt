@@ -1,0 +1,2 @@
+C:\Users\Lenovo\Desktop\Projekat P2P - Original\Peer-2-Peer-file-sharing---C\Debug\ClientOperations_StaticLib.pdb
+C:\Users\Lenovo\Desktop\Projekat P2P - Original\Peer-2-Peer-file-sharing---C\ClientOperations_StaticLib\Debug\ClientOperations_StaticLib.pdb

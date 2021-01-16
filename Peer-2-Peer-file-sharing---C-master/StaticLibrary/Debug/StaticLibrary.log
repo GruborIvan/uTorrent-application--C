@@ -1,0 +1,16 @@
+﻿  List.cpp
+D:\Industrijski Komunikacioni Protokoli\Mrezno\UDP_TCP\WinSock_TCP_Blocking\StaticLibrary\List.cpp(4,22): error C2065: 'Klijent': undeclared identifier
+D:\Industrijski Komunikacioni Protokoli\Mrezno\UDP_TCP\WinSock_TCP_Blocking\StaticLibrary\List.cpp(4,31): error C2065: 'list': undeclared identifier
+D:\Industrijski Komunikacioni Protokoli\Mrezno\UDP_TCP\WinSock_TCP_Blocking\StaticLibrary\List.cpp(4,37): error C2065: 'Klijent': undeclared identifier
+D:\Industrijski Komunikacioni Protokoli\Mrezno\UDP_TCP\WinSock_TCP_Blocking\StaticLibrary\List.cpp(4,46): error C2065: 'newNode': undeclared identifier
+D:\Industrijski Komunikacioni Protokoli\Mrezno\UDP_TCP\WinSock_TCP_Blocking\StaticLibrary\List.cpp(4,53): error C2182: 'AddClientToList': illegal use of type 'void'
+D:\Industrijski Komunikacioni Protokoli\Mrezno\UDP_TCP\WinSock_TCP_Blocking\StaticLibrary\List.cpp(5,1): error C2448: 'AddClientToList': function-style initializer appears to be a function definition
+D:\Industrijski Komunikacioni Protokoli\Mrezno\UDP_TCP\WinSock_TCP_Blocking\StaticLibrary\List.cpp(15,27): error C2065: 'Klijent': undeclared identifier
+D:\Industrijski Komunikacioni Protokoli\Mrezno\UDP_TCP\WinSock_TCP_Blocking\StaticLibrary\List.cpp(15,36): error C2065: 'list': undeclared identifier
+D:\Industrijski Komunikacioni Protokoli\Mrezno\UDP_TCP\WinSock_TCP_Blocking\StaticLibrary\List.cpp(15,46): error C2062: type 'int' unexpected
+D:\Industrijski Komunikacioni Protokoli\Mrezno\UDP_TCP\WinSock_TCP_Blocking\StaticLibrary\List.cpp(16,1): error C2143: syntax error: missing ';' before '{'
+D:\Industrijski Komunikacioni Protokoli\Mrezno\UDP_TCP\WinSock_TCP_Blocking\StaticLibrary\List.cpp(16,1): error C2447: '{': missing function header (old-style formal list?)
+D:\Industrijski Komunikacioni Protokoli\Mrezno\UDP_TCP\WinSock_TCP_Blocking\StaticLibrary\list.h(13,6): error C2365: 'AddClientToList': redefinition; previous definition was 'data variable'
+D:\Industrijski Komunikacioni Protokoli\Mrezno\UDP_TCP\WinSock_TCP_Blocking\StaticLibrary\List.cpp(4): message : see declaration of 'AddClientToList'
+D:\Industrijski Komunikacioni Protokoli\Mrezno\UDP_TCP\WinSock_TCP_Blocking\StaticLibrary\List.cpp(4,6): error C2365: 'AddClientToList': redefinition; previous definition was 'data variable'
+D:\Industrijski Komunikacioni Protokoli\Mrezno\UDP_TCP\WinSock_TCP_Blocking\StaticLibrary\List.cpp(4): message : see declaration of 'AddClientToList'

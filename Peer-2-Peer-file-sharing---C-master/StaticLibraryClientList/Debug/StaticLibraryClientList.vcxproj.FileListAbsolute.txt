@@ -1,0 +1,2 @@
+D:\Industrijski Komunikacioni Protokoli\Mrezno\UDP_TCP\WinSock_TCP_Blocking\Debug\StaticLibraryClientList.pdb
+D:\Industrijski Komunikacioni Protokoli\Mrezno\UDP_TCP\WinSock_TCP_Blocking\StaticLibraryClientList\Debug\StaticLibraryClientList.pdb
