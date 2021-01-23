@@ -207,6 +207,8 @@ int __cdecl main(int argc, char **argv)
     recieveAllStoredFiles(&connectSocket);
     // ========================================
 
+
+
     // OPERNING CLIENT LISTENING THREAD...
     ParametersListen* parameters = (ParametersListen*)malloc(sizeof(ParametersListen));
     parameters->acceptedSocketShare = acceptedSocketShare;
@@ -230,7 +232,8 @@ int __cdecl main(int argc, char **argv)
         {
             // ------------- DISCONNECTING CLIENT-----------------
             disconnectClientFromServer(ioc,&connectSocket,port);
-            free(ioc);
+            CloseClientSession();
+            //free(ioc);
             break;
         }
         else
@@ -241,6 +244,7 @@ int __cdecl main(int argc, char **argv)
 
         // Slanje zahteva serveru za fajl...
         sendClientFileRequestToServer(&connectSocket,ioc);
+        free(ioc);
 
         // Dobijanje odgovora od servera...
         FileResponse* srvResponse = (FileResponse*)malloc(sizeof(FileResponse));
@@ -353,6 +357,8 @@ int __cdecl main(int argc, char **argv)
 
             size_t elementsWritten = fwrite(fullFileContent,fileSize + 1, 1, fp);
             fclose(fp);
+
+            free(srvResponse);
 
             if (elementsWritten == 0) {
                 printf("Nisam uspeo da upisem element!");

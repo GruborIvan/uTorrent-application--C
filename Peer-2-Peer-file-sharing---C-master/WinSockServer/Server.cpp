@@ -9,6 +9,12 @@
 #include "../TCP_Methods_StaticLibrary/TCP_Methods.h"
 #include "../TCP_Methods_StaticLibrary/TCP_Methods.h"
 
+#define RED "\033[30m"
+#define GREEN "\033[32m"
+#define YELLOW "\033[33m"
+#define BLUE "\033[94m"
+#define RESET "\033[0m"
+#define MAGNETA "\033[95m"
 #define DEFAULT_BUFLEN 512
 #define DEFAULT_PORT "27016"
 #define FILE_PART_SIZE 512
@@ -27,7 +33,7 @@ bool ReadFilePart(char* fileName, int part, char* fileInput);
 
 DWORD WINAPI ClientThread(LPVOID lpParam)
 {
-    Parameters parameters = *(Parameters*)lpParam;
+    Parameters *parameters = (Parameters*)lpParam;
 
     int iResult;
     fd_set readfds;
@@ -35,10 +41,15 @@ DWORD WINAPI ClientThread(LPVOID lpParam)
     timeVal.tv_sec = 1;
     timeVal.tv_usec = 0;
 
+    SOCKET acceptedSocket;
+    acceptedSocket = parameters->acceptedSocket;
+
+    //free(parameters); // Oslobadjanje memorije za parametre
+
     while (1)
     {
         FD_ZERO(&readfds);
-        FD_SET(parameters.acceptedSocket,&readfds);
+        FD_SET(acceptedSocket,&readfds);
 
         iResult = select(0, &readfds, NULL, NULL, &timeVal);
         if (iResult == 0) 
@@ -53,14 +64,14 @@ DWORD WINAPI ClientThread(LPVOID lpParam)
         else
         {
             ClientRequest* pok = (ClientRequest*)malloc(sizeof(ClientRequest));
-            int byts = RecieveClientRequest(&parameters.acceptedSocket,pok);
+            int byts = RecieveClientRequest(&acceptedSocket,pok);
 
             if (byts > 0)
             {
                 if (pok->Mode == 1)
                 {
                     // Client connect!
-                    int clientId = DodavanjeKlijenataUListu(parameters.acceptedSocket, pok->port);
+                    int clientId = DodavanjeKlijenataUListu(acceptedSocket, pok->port);
 
                     char availableFiles[10][FILE_NAME_SIZE];
                     strcpy_s(availableFiles[0], "thisfile.bin");
@@ -74,14 +85,16 @@ DWORD WINAPI ClientThread(LPVOID lpParam)
                     strcpy_s(availableFiles[8], "content.bin");
                     strcpy_s(availableFiles[9], "everything.bin");
 
-                    sendAvailableFilesListToClient(&parameters.acceptedSocket,(char*)availableFiles);
+                    sendAvailableFilesListToClient(&acceptedSocket,(char*)availableFiles);
+                    free(pok);
                 }
                 else if (pok->Mode == 2)
                 {
                     // Client Disconnect !
                     NullateClientFileHashTable(pok->port);
                     RemoveClientFromList(pok->port);
-                    continue;
+                    free(pok);
+                    break;
                 }
                 else
                 {
@@ -110,7 +123,7 @@ DWORD WINAPI ClientThread(LPVOID lpParam)
                         // Settovanje imena fajla u response..
                         strcpy_s(response->fileName, FILE_NAME_SIZE, pok->fileName);
 
-                        printf_s("\n Trazeni fajl %s od strane klijenta %d\n", pok->fileName, pok->port);
+                        printf_s("\n*Trazeni fajl " BLUE "%s" RESET " od strane klijenta %d\n", pok->fileName, pok->port);
 
                         // Anuliranje svih portova..
                         for (int i = 0; i < 5; i++) {
@@ -118,7 +131,7 @@ DWORD WINAPI ClientThread(LPVOID lpParam)
                         }
 
                         // Read ports of clients that contain this file..
-                        ReadClientFiles(pok->fileName, response->ports);
+                        ReadClientFiles(response->fileName, response->ports);
 
                         // Ucitavanje portova klienata koji sadrze trazeni fajl!
                         for (int i = 0; i < 5; i++)
@@ -126,18 +139,20 @@ DWORD WINAPI ClientThread(LPVOID lpParam)
                             if (response->ports[i] == 0)
                             {
                                 // Read part of the file specified with i.   File parts: 1-5  //
-                                ReadFilePart(pok->fileName, i + 1, response->fileParts[i]);
+                                ReadFilePart(response->fileName, i + 1, response->fileParts[i]);
                             }
                         }
 
                         // Pronadji onaj deo fajla koji treba klijent da sacuva kod sebe...
                         response->keep = 0;
-                        response->keep = AddFileToHashTable(pok->fileName, pok->port);
+                        response->keep = AddFileToHashTable(response->fileName, pok->port);
 
                     }
 
-                    SendServerResponseToClient(&parameters.acceptedSocket, (char*)response);
+                    // Slanje Serverskog odgovora Klijentu...
+                    SendServerResponseToClient(&acceptedSocket, (char*)response);
                     free(response);
+                    free(pok);
                 }
 
             }
@@ -146,18 +161,23 @@ DWORD WINAPI ClientThread(LPVOID lpParam)
                 // OVDE SE GASI KLIJENT...
                 // connection was closed gracefully
                 printf("Connection with client closed.\n");
-                closesocket(parameters.acceptedSocket);
+                closesocket(acceptedSocket);
                 return 1;
             }
             else
             {
                 printf("recv failed with error: %d\n", WSAGetLastError());
-                closesocket(parameters.acceptedSocket);
+                closesocket(acceptedSocket);
                 return 0;
             }
         }
         Sleep(500);
     }
+
+    // Ovde dodje kada se klijent disconnectuje.
+
+    // Odraditi gracefully exit
+
     return 0;
 }
 
@@ -198,7 +218,7 @@ DWORD WINAPI AcceptClients(LPVOID lpParam)
                 printf("accept failed with error: %d\n", WSAGetLastError());
                 closesocket(params->listenSocket);
                 WSACleanup();
-                return 1;
+                break;
             }
             else
             {
@@ -216,7 +236,9 @@ DWORD WINAPI AcceptClients(LPVOID lpParam)
 
         Sleep(500);
     }
+
     free(params);
+    return 0;
 }
 
 int  main(void) 
@@ -244,18 +266,19 @@ int  main(void)
     init_criticalSectionHashTable();
 
     // TESTING HASH FUNCTION...
-    system("COLOR B");
-    printf("Dostupni fajlovi:\n \n");
-    printf("thisfile.bin \n");
-    printf("novisa.bin \n");
-    printf("movie.bin \n");
-    printf("randomFile.bin \n");
-    printf("extra.bin \n");
-    printf("chromePlug.bin\n");
-    printf("svasta.bin\n");
-    printf("tamonekifajl.bin\n");
-    printf("content.bin\n");
-    printf("everything.bin \n");
+    //system("COLOR B");
+    printf(YELLOW " Dostupni fajlovi:   | \n" RESET);
+    printf(MAGNETA " thisfile.bin" YELLOW "        | \n" RESET);
+    printf(MAGNETA " novisa.bin" YELLOW "          | \n" RESET);
+    printf(MAGNETA " movie.bin" YELLOW"           | \n" RESET);
+    printf(MAGNETA " randomFile.bin" YELLOW"      | \n" RESET);
+    printf(MAGNETA " extra.bin" YELLOW"           | \n" RESET);
+    printf(MAGNETA " chromePlug.bin" YELLOW"      | \n" RESET);
+    printf(MAGNETA " svasta.bin" YELLOW"          | \n" RESET);
+    printf(MAGNETA " tamonekifajl.bin" YELLOW"    | \n" RESET);
+    printf(MAGNETA " content.bin" YELLOW"         | \n" RESET);
+    printf(MAGNETA " everything.bin" YELLOW"      | \n" RESET);
+    printf(YELLOW " ---------------------\n" RESET);
     
     if(InitializeWindowsSockets() == false)
     {
@@ -325,7 +348,7 @@ int  main(void)
         return 1;
     }
 
-	printf("Server initialized, waiting for clients.\n");
+	printf(YELLOW "Server aktivan, ceka klijentske zahteve!.\n" RESET);
 
     Parameters* params = (Parameters*)malloc(sizeof(Parameters));
     params->acceptedSocket = acceptedSocket;
@@ -335,10 +358,25 @@ int  main(void)
     handle = CreateThread(NULL, 0, &AcceptClients, params, 0, &dword);
     //////////////////////////////////////////////////////////////////
 
+    int end;
+
     while (1)
     {
-
+        printf_s("Unesite 0 kako biste ugasili server: ");
+        scanf_s("%d",&end);
+        if (end == 0) {
+            printf_s("Kraj! \n");
+            break;
+        }
     }
+
+    free(params);
+    ClearHashTable();
+    EmptyClientList();
+
+    // Pokretanje gasenja ostalih handlova na niti 2..
+
+    CloseHandle(handle);
 
     // shutdown the connection since we're done
     iResult = shutdown(acceptedSocket, SD_SEND);
@@ -354,7 +392,6 @@ int  main(void)
     closesocket(listenSocket);
     closesocket(acceptedSocket);
     WSACleanup();
-
     return 0;
 }
 
@@ -387,7 +424,7 @@ bool ReadFilePart(char* fileName, int part,char* fileInput)
 
     char readBuffer[FILE_SIZE];
 
-    // CITANJE !
+    // Citanje celokupnog fajla..
     const size_t fileSize = fread(readBuffer, FILE_SIZE, 1, fptr);
     fclose(fptr);
 

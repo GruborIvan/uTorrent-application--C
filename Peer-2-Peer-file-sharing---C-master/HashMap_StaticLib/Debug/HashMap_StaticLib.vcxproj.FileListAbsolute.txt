@@ -1,2 +1,4 @@
 C:\Users\Lenovo\Desktop\Projekat P2P - Original\Peer-2-Peer-file-sharing---C\Debug\HashMap_StaticLib.pdb
 C:\Users\Lenovo\Desktop\Projekat P2P - Original\Peer-2-Peer-file-sharing---C\HashMap_StaticLib\Debug\HashMap_StaticLib.pdb
+C:\Users\Lenovo\Desktop\IKP Proj\Peer-2-Peer-file-sharing---C-master\Debug\HashMap_StaticLib.pdb
+C:\Users\Lenovo\Desktop\IKP Proj\Peer-2-Peer-file-sharing---C-master\HashMap_StaticLib\Debug\HashMap_StaticLib.pdb

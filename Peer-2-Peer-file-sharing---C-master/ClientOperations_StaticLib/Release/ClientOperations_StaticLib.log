@@ -1,0 +1,2 @@
+﻿  ClientFiles.cpp
+C:\Users\Lenovo\Desktop\IKP Proj\Peer-2-Peer-file-sharing---C-master\ClientOperations_StaticLib\ClientFiles.cpp(100,1): fatal error C1010: unexpected end of file while looking for precompiled header. Did you forget to add '#include "pch.h"' to your source?

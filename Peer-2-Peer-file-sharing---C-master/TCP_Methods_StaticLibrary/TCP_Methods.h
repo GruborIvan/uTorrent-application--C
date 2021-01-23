@@ -7,16 +7,16 @@
 typedef struct ClientRequest
 {
     char fileName[FILE_NAME_SIZE];
-    int Mode; // Moze biti 0,1,2      0 - Regularno slanje     1 - Dodavanje   2 - Exit
-    int port;
+    int Mode; // Moze biti 0,1,2  ||  0 - Regularno slanje |  1 - Connect |  2 - Disconnect |
+    int port; //Klijent salje svoj Port..
 } ClientRequest;
 
 typedef struct FileResponse
 {
     char fileName[FILE_NAME_SIZE];
-    int keep;
-    int ports[5];
-    char fileParts[5][FILE_PART_SIZE];
+    int keep; //Oznacava deo fajla koji treba sacuvati.
+    int ports[5]; // Portovi
+    char fileParts[5][FILE_PART_SIZE]; //Delovi fajlova
 } FileResponse;
 
 // CLIENT OPERATIONS...

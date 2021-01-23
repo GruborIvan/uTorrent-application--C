@@ -1,11 +1,11 @@
 #pragma once
 #include <WinSock2.h>
 
-#define WIN32_LEAN_AND_MEAN             // Exclude rarely-used stuff from Windows headers
+#define WIN32_LEAN_AND_MEAN             
 
 typedef struct Klijent
 {
-    SOCKET socket;
+    SOCKET socket;  //Accepted socket klijenta..
     int port;
     struct Klijent* next;
 } Klijent;
@@ -19,3 +19,7 @@ int DodavanjeKlijenataUListu(SOCKET socket, int port);
 Klijent* GetClientByPort(int clientPort);
 
 void RemoveClientFromList(int clientPort);
+
+int GetLastClientPort();
+
+void EmptyClientList();

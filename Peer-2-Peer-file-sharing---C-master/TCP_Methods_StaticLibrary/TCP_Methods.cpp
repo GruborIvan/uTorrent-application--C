@@ -3,6 +3,10 @@
 #include "TCP_Methods.h"
 
 #define FILE_SIZE 2008
+#define YELLOW "\033[33m"
+#define GREEN "\033[32m"
+#define RESET "\033[0m"
+#define MAGNETA "\033[95m"
 
 bool connectClientToServer(SOCKET* connectSocket, char* Port)
 {
@@ -30,9 +34,7 @@ bool disconnectClientFromServer(ClientRequest* ioc, SOCKET* connectSocket, int p
 {
     ioc->Mode = 2;
     ioc->port = port;
-    //memcpy_s(ioc->port,5,Port,5);
 
-    // Send an prepared message with null terminator included
     int iResult = send(*connectSocket, (char*)ioc, sizeof(ClientRequest), 0);
 
     if (iResult == SOCKET_ERROR)
@@ -85,8 +87,6 @@ void sendClientFileRequestToServer(SOCKET* connectSocket, ClientRequest* ioc)
         bytesSent += iResult;
     } 
     while (bytesSent < sizeof(ClientRequest));
-
-    free(ioc);
 }
 
 int RecieveResponseFromServer(SOCKET* connectSocket, FileResponse *response)
@@ -196,7 +196,6 @@ void AnswerP2P_Request(char* fileContent, SOCKET* socket)
 }
 
 // TCP METHODS CALLED BY SERVER !
-
 int RecieveClientRequest(SOCKET* socket, ClientRequest* req)
 {
     int iResult = 0;
@@ -227,7 +226,6 @@ void SendServerResponseToClient(SOCKET* socket, char* response)
 
     do
     {
-        // Send file across network & check whether it's sucessfully sent.
         iResult = send(*socket, (char*)response, sizeof(FileResponse), 0);
 
         if (iResult == SOCKET_ERROR)

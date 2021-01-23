@@ -65,6 +65,15 @@ int TrimContent(char* fileContent)
     return cnt;
 }
 
+void CloseClientSession()
+{
+    for (int i = 0; i < HASH_TABLE_SIZE; i++)
+    {
+        FileKeep* pok = fileKeepTable[i];
+        free(pok);
+    }
+}
+
 bool InitializeWindowsSockets()
 {
     WSADATA wsaData;

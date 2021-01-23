@@ -1,2 +1,4 @@
 C:\Users\Lenovo\Desktop\Projekat P2P - Original\Peer-2-Peer-file-sharing---C\Debug\ClientList_StaticLib.pdb
 C:\Users\Lenovo\Desktop\Projekat P2P - Original\Peer-2-Peer-file-sharing---C\ClientList_StaticLib\Debug\ClientList_StaticLib.pdb
+C:\Users\Lenovo\Desktop\IKP Proj\Peer-2-Peer-file-sharing---C-master\Debug\ClientList_StaticLib.pdb
+C:\Users\Lenovo\Desktop\IKP Proj\Peer-2-Peer-file-sharing---C-master\ClientList_StaticLib\Debug\ClientList_StaticLib.pdb

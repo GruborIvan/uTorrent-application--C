@@ -65,9 +65,6 @@ int AddFileToHashTable(char* fileName, int clientPort)
     Klijent* k = GetClientByPort(clientPort);
 
     int filePart = 1;
-
-    // Setup..
-    //strcpy_s(newCf->fileName, FILE_NAME_SIZE, fileName);
     strcpy_s(newCf->fileName,FILE_NAME_SIZE,fileName);
     newCf->clientPort = k->port;
     newCf->next = NULL;
@@ -75,11 +72,21 @@ int AddFileToHashTable(char* fileName, int clientPort)
     unsigned int id = hash(fileName);
     ClientFile* pok = hashTable[id];
     
-    if (pok == NULL)
+    if (pok == NULL) 
     {
         newCf->filePart = 1;
         hashTable[id] = newCf;
         return 1;
+    }
+    else if (pok->clientPort == 0) {
+        pok->clientPort = newCf->clientPort; free(newCf);
+        return 1;
+    }
+    else if (pok->next == NULL || pok->next->clientPort == 0)
+    {
+        newCf->filePart = 2;
+        pok->next = newCf;
+        return 2;
     }
 
     EnterCriticalSection(&csHashTable);
@@ -163,5 +170,43 @@ bool ClientHasFIle(char* fileName, int port)
         pok = pok->next;
     }
 
+    return false;
+}
+
+void ClearHashTable()
+{
+    ClientFile* pok = NULL;
+
+    for (int i = 0; i < HASH_TABLE_SIZE; i++)
+    {
+        pok = hashTable[i];
+        while (pok) {
+           
+            bool isLast = RemoveFromEnd(pok);
+            if (isLast) {
+                pok = NULL;
+            }
+        }
+        hashTable[i] = NULL;
+    }
+}
+
+bool RemoveFromEnd(ClientFile* start)
+{
+    ClientFile* prev = NULL;
+
+    if (start->next == NULL) {
+        free(start);
+        return true;
+    }
+
+    while (start->next != NULL)
+    {
+        prev = start;
+        start = start->next;
+    }
+
+    prev->next = NULL;
+    free(start);
     return false;
 }

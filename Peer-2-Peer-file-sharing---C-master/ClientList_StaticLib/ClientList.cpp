@@ -6,6 +6,10 @@
 #include <string.h>
 #include "ClientList.h"
 
+#define YELLOW "\033[33m"
+#define GREEN "\033[32m"
+#define RESET "\033[0m"
+
 struct Klijent* clientLista;
 
 CRITICAL_SECTION csList;
@@ -35,27 +39,27 @@ int DodavanjeKlijenataUListu(SOCKET socket, int port)
 
     EnterCriticalSection(&csList);
 
-    printf("\n-------------------------------------------------\n");
+    printf(YELLOW "\n-----------------------------------------------------------\n" RESET);
     if (clientLista == NULL)
     {
         clientLista = newClient;
-        printf("%d . Cliend Id: %d  Port: %d\n", clientLista->port, clientLista->port, clientLista->port);
+        printf("%d . Cliend Id: %d  Port: %d    Status: " GREEN "CONNECTED \n" RESET, clientLista->port, clientLista->port, clientLista->port);
     }
     else
     {
         while (pok->next != NULL)
         {
-            printf("%d . Cliend Id: %d  Port: %d\n", pok->port, pok->port, pok->port);
+            printf("%d . Cliend Id: %d  Port: %d    Status: " GREEN "CONNECTED \n" RESET, pok->port, pok->port, pok->port);
             pok = pok->next;
             num++;
         }
 
         pok->next = newClient;
-        printf("%d . Cliend Id: %d  Port: %d\n", pok->port,pok->port, pok->port);
-        printf("%d . Cliend Id: %d  Port: %d\n", pok->port,newClient->port, newClient->port);
+        printf("%d . Cliend Id: %d  Port: %d    Status: " GREEN "CONNECTED \n" RESET, pok->port,pok->port, pok->port);
+        printf("%d . Cliend Id: %d  Port: %d    Status: " GREEN "CONNECTED \n" RESET, pok->port,newClient->port, newClient->port);
         num++;
     }
-    printf("-------------------------------------------------\n");
+    printf(YELLOW "-----------------------------------------------------------\n" RESET);
 
     LeaveCriticalSection(&csList);
 
@@ -112,4 +116,28 @@ void RemoveClientFromList(int clientPort)
     }
 
     LeaveCriticalSection(&csList);
+}
+
+int GetLastClientPort()
+{
+    Klijent* pok = clientLista;
+
+    if (pok == NULL)
+        return 0;
+
+    while (pok->next != NULL)
+    {
+        pok = pok->next;
+    }
+
+    return pok->port;
+}
+
+void EmptyClientList()
+{
+    int curr_port;
+    while ((curr_port = GetLastClientPort()) != 0)
+    {
+        RemoveClientFromList(curr_port);
+    }
 }
