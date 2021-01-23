@@ -25,6 +25,7 @@ typedef struct Parameters
 {
     SOCKET acceptedSocket;
     SOCKET listenSocket;
+    bool IsAlive;
 } Parameters;
 
 bool InitializeWindowsSockets();
@@ -195,6 +196,7 @@ DWORD WINAPI AcceptClients(LPVOID lpParam)
     DWORD dwordList[20];
     HANDLE handleList[20];
 
+    bool* IsAlive = (bool*)&((Parameters*)lpParam)->IsAlive;
     Parameters* params = (Parameters*)lpParam;
 
     while (1)
@@ -353,6 +355,7 @@ int  main(void)
     Parameters* params = (Parameters*)malloc(sizeof(Parameters));
     params->acceptedSocket = acceptedSocket;
     params->listenSocket = listenSocket;
+    params->IsAlive = true;
 
     //////////////////////////////////////////////////////////////////
     handle = CreateThread(NULL, 0, &AcceptClients, params, 0, &dword);

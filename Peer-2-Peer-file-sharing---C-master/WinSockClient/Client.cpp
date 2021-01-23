@@ -26,11 +26,14 @@ typedef struct ParametersListen
     SOCKET listenSocketShare;
     SOCKET acceptedSocketShare;
     int port;
+    bool IsAlive;
 } ParametersListen;
 
 DWORD WINAPI ClientThread(LPVOID lpParam) 
 {
     int iResult;
+    bool* IsAlive = (bool*)&((ParametersListen*)lpParam)->IsAlive;
+
     ParametersListen parameters = *(ParametersListen*)lpParam;
 
     addrinfo* resultingAddress = NULL;
@@ -93,9 +96,8 @@ DWORD WINAPI ClientThread(LPVOID lpParam)
     timeVal.tv_sec = 1;
     timeVal.tv_usec = 0;
 
-    while (1)
+    while (*IsAlive)
     {
-
         FD_ZERO(&readfds);
         FD_SET(parameters.listenSocketShare, &readfds);
 
@@ -133,7 +135,7 @@ DWORD WINAPI ClientThread(LPVOID lpParam)
                 AnswerP2P_Request(fkp.filePartContent,&parameters.acceptedSocketShare); // Odgovor na P2P zahtev!
             }
         }
-        Sleep(1000);
+        //Sleep(1000);
     }
 
     return 0;
@@ -214,6 +216,7 @@ int __cdecl main(int argc, char **argv)
     parameters->acceptedSocketShare = acceptedSocketShare;
     parameters->listenSocketShare = listenSocketShare;
     parameters->port = port;
+    parameters->IsAlive = true;
 
     // Pokretanje Thread-a za osluskivanje pristiglih zahteva za delove fajlova... (Podizanje klijent-serverskog Socket-a).
     handle = CreateThread(NULL, 0, &ClientThread, parameters, 0, &dword);
@@ -233,7 +236,8 @@ int __cdecl main(int argc, char **argv)
             // ------------- DISCONNECTING CLIENT-----------------
             disconnectClientFromServer(ioc,&connectSocket,port);
             CloseClientSession();
-            //free(ioc);
+            parameters->IsAlive = false;
+            free(ioc);
             break;
         }
         else
