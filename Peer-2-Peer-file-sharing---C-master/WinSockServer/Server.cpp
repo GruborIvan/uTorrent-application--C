@@ -45,9 +45,10 @@ DWORD WINAPI ClientThread(LPVOID lpParam)
     SOCKET acceptedSocket;
     acceptedSocket = parameters->acceptedSocket;
 
+    bool* IsAlive = (bool*)&((Parameters*)lpParam)->IsAlive;
     //free(parameters); // Oslobadjanje memorije za parametre
 
-    while (1)
+    while (*IsAlive)
     {
         FD_ZERO(&readfds);
         FD_SET(acceptedSocket,&readfds);
@@ -175,10 +176,6 @@ DWORD WINAPI ClientThread(LPVOID lpParam)
         Sleep(500);
     }
 
-    // Ovde dodje kada se klijent disconnectuje.
-
-    // Odraditi gracefully exit
-
     return 0;
 }
 
@@ -199,7 +196,7 @@ DWORD WINAPI AcceptClients(LPVOID lpParam)
     bool* IsAlive = (bool*)&((Parameters*)lpParam)->IsAlive;
     Parameters* params = (Parameters*)lpParam;
 
-    while (1)
+    while (*IsAlive)
     {
         FD_ZERO(&readfds);
         FD_SET(params->listenSocket,&readfds);
@@ -226,20 +223,18 @@ DWORD WINAPI AcceptClients(LPVOID lpParam)
             {
                 iResult = ioctlsocket(params->acceptedSocket, FIONBIO, &mode);
 
-                // Salji ovo kao pokazivac...
-                Parameters parameters;
-                parameters.acceptedSocket = params->acceptedSocket;
-
-                handleList[socketCount] = CreateThread(NULL, 0, &ClientThread, &parameters, 0, &dwordList[socketCount]);
+                handleList[socketCount] = CreateThread(NULL, 0, &ClientThread, params, 0, &dwordList[socketCount]);
                 socketCount++;
             }
 
         }
-
-        Sleep(500);
     }
 
-    free(params);
+    Sleep(500);
+    for (int i = 0; i < socketCount; i++) {
+        CloseHandle(handleList[i]);
+    }
+    
     return 0;
 }
 
@@ -373,23 +368,29 @@ int  main(void)
         }
     }
 
-    free(params);
-    ClearHashTable();
-    EmptyClientList();
+    params->IsAlive = false;
+    Sleep(1000);
+
+    // Oslobadjanje memorije..
+    ClearHashTable(); // Brisanje CLient fajlova iz HashTabele
+    EmptyClientList(); // Brisanje liste konektovanih klijenata
 
     // Pokretanje gasenja ostalih handlova na niti 2..
-
     CloseHandle(handle);
 
     // shutdown the connection since we're done
-    iResult = shutdown(acceptedSocket, SD_SEND);
-    if (iResult == SOCKET_ERROR)
-    {
-        printf("shutdown failed with error: %d\n", WSAGetLastError());
-        closesocket(acceptedSocket);
-        WSACleanup();
-        return 1;
+    if (params->acceptedSocket != INVALID_SOCKET) {
+        iResult = shutdown(params->acceptedSocket, SD_SEND);
+        if (iResult == SOCKET_ERROR)
+        {
+            printf("shutdown failed with error: %d\n", WSAGetLastError());
+            closesocket(params->acceptedSocket);
+            WSACleanup();
+            return 1;
+        }
     }
+    
+    free(params); // Oslobadjanje parametara za Thread..
 
     // cleanup
     closesocket(listenSocket);
