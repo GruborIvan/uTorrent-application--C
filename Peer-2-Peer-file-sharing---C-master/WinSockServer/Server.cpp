@@ -15,6 +15,7 @@
 #define BLUE "\033[94m"
 #define RESET "\033[0m"
 #define MAGNETA "\033[95m"
+#define MAX_CLIENTS 20
 #define DEFAULT_BUFLEN 512
 #define DEFAULT_PORT "27016"
 #define FILE_PART_SIZE 512
@@ -26,6 +27,7 @@ typedef struct Parameters
     SOCKET acceptedSocket;
     SOCKET listenSocket;
     bool IsAlive;
+    int* ThreadLifeIndicator;
 } Parameters;
 
 bool InitializeWindowsSockets();
@@ -46,7 +48,7 @@ DWORD WINAPI ClientThread(LPVOID lpParam)
     acceptedSocket = parameters->acceptedSocket;
 
     bool* IsAlive = (bool*)&((Parameters*)lpParam)->IsAlive;
-    //free(parameters); // Oslobadjanje memorije za parametre
+    int* ThreadLifeIndicator = (int*)((Parameters*)lpParam)->ThreadLifeIndicator;
 
     while (*IsAlive)
     {
@@ -96,6 +98,8 @@ DWORD WINAPI ClientThread(LPVOID lpParam)
                     NullateClientFileHashTable(pok->port);
                     RemoveClientFromList(pok->port);
                     free(pok);
+                    *ThreadLifeIndicator = 2;
+                    Sleep(1000);
                     break;
                 }
                 else
@@ -190,8 +194,13 @@ DWORD WINAPI AcceptClients(LPVOID lpParam)
     timeVal.tv_sec = 1;
     timeVal.tv_usec = 0;
 
-    DWORD dwordList[20];
-    HANDLE handleList[20];
+    DWORD dwordList[MAX_CLIENTS];
+    HANDLE handleList[MAX_CLIENTS];
+    int HandleClosingEvidencija[MAX_CLIENTS];
+
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        HandleClosingEvidencija[i] = 0;
+    }
 
     bool* IsAlive = (bool*)&((Parameters*)lpParam)->IsAlive;
     Parameters* params = (Parameters*)lpParam;
@@ -200,6 +209,14 @@ DWORD WINAPI AcceptClients(LPVOID lpParam)
     {
         FD_ZERO(&readfds);
         FD_SET(params->listenSocket,&readfds);
+
+        for (int i = 0; i < MAX_CLIENTS; i++) {
+            if (HandleClosingEvidencija[i] == 2) {
+                // Treba ugasiti thread...
+                HandleClosingEvidencija[i] = 0;
+                CloseHandle(handleList[i]);
+            }
+        }
 
         iResult = select(0, &readfds, NULL, NULL, &timeVal);
         if (iResult == 0){
@@ -221,7 +238,11 @@ DWORD WINAPI AcceptClients(LPVOID lpParam)
             }
             else
             {
+                // Postavljanje Socket-a u neblokirajuci rezim..
                 iResult = ioctlsocket(params->acceptedSocket, FIONBIO, &mode);
+                
+                HandleClosingEvidencija[socketCount] = 1; // Indikacija da je zauzeta...
+                params->ThreadLifeIndicator = &HandleClosingEvidencija[socketCount];
 
                 handleList[socketCount] = CreateThread(NULL, 0, &ClientThread, params, 0, &dwordList[socketCount]);
                 socketCount++;
@@ -230,11 +251,15 @@ DWORD WINAPI AcceptClients(LPVOID lpParam)
         }
     }
 
-    Sleep(500);
-    for (int i = 0; i < socketCount; i++) {
-        CloseHandle(handleList[i]);
-    }
-    
+    // U ovaj deo koda se ulazi samo kada se Server ugasi..
+    #pragma region CloseAllThreads Region
+        Sleep(500);
+        for (int i = 0; i < socketCount; i++) {
+            if (HandleClosingEvidencija[i] != 0) {
+                CloseHandle(handleList[i]);
+            }
+        }
+    #pragma endregion
     return 0;
 }
 
@@ -351,6 +376,7 @@ int  main(void)
     params->acceptedSocket = acceptedSocket;
     params->listenSocket = listenSocket;
     params->IsAlive = true;
+    params->ThreadLifeIndicator = 0;
 
     //////////////////////////////////////////////////////////////////
     handle = CreateThread(NULL, 0, &AcceptClients, params, 0, &dword);

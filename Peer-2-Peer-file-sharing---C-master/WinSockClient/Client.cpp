@@ -352,7 +352,12 @@ int __cdecl main(int argc, char **argv)
             PrintStoredFiles();  //Ispis svih fajlova ciji se deo cuva!
 
             FILE* fp;
-            fopen_s(&fp,srvResponse->fileName,"wb");
+            char FileInFolderName[2 * FILE_NAME_SIZE] = "0_RecievedFiles\\Port ";
+            strcat(FileInFolderName,Port);
+            strcat(FileInFolderName, "__");
+            strcat(FileInFolderName, srvResponse->fileName);
+
+            fopen_s(&fp,FileInFolderName,"wb");
 
             if (fp == NULL) {
                 printf("Unable to upen file pointer to write recieved file!");

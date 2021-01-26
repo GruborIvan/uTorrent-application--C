@@ -1,3 +1,3 @@
 ﻿  Server.cpp
-C:\Users\Lenovo\Desktop\IKP Proj\Peer-2-Peer-file-sharing---C-master\WinSockServer\Server.cpp(422,17): warning C4996: 'fopen': This function or variable may be unsafe. Consider using fopen_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+C:\Users\Lenovo\Desktop\IKP Proj\Peer-2-Peer-file-sharing---C-master\WinSockServer\Server.cpp(448,17): warning C4996: 'fopen': This function or variable may be unsafe. Consider using fopen_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
   WinSockServer.vcxproj -> C:\Users\Lenovo\Desktop\IKP Proj\Peer-2-Peer-file-sharing---C-master\Debug\WinSockServer.exe
