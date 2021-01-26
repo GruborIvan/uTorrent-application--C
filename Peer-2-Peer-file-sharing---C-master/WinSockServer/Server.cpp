@@ -263,7 +263,7 @@ DWORD WINAPI AcceptClients(LPVOID lpParam)
     return 0;
 }
 
-int  main(void) 
+int main(void) 
 {
     DWORD dword;
     HANDLE handle;
