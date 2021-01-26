@@ -30,8 +30,11 @@ typedef struct Parameters
     int* ThreadLifeIndicator;
 } Parameters;
 
-bool InitializeWindowsSockets();
 
+bool InitializeWindowsSockets(); 	// Initialize windows sockets library for this process
+
+// Funkcija za uèitavanje sadržaja binarnog fajla.
+// Parametri: fileName - Ime trazenog fajla, part - deo fajla ,  fileInput - pokaziva; na buffer gde se deo fajla ucitava.
 bool ReadFilePart(char* fileName, int part, char* fileInput);
 
 DWORD WINAPI ClientThread(LPVOID lpParam)
@@ -268,10 +271,10 @@ int main(void)
     DWORD dword;
     HANDLE handle;
 
-    // variable used to store function return value
-    int iResult;
+    int iResult;  // variable used to store function return value
+    int end;  // Close Server purpose
 
-    unsigned long mode = 1;
+    unsigned long mode = 1;   // Sluzi za postavljanje Socketa u neblokirajuci rezim.
 
     // Socket used for listening for clients
     SOCKET listenSocket = INVALID_SOCKET;
@@ -279,16 +282,15 @@ int main(void)
     // Accepted client socket..
     SOCKET acceptedSocket = INVALID_SOCKET;
 
-    // Initializing all hash table values to NULL..
-    init_hash_table();
+    init_hash_table(); // Inicijalizacija HashTabele (HashMap_StaticLib  staticka biblioteka)
 
-    init_client_list();
+    init_client_list(); // Inicijalizacija Liste Klijenata (ClientList_StaticLib  staticka biblioteka)
 
+    // Inicijalizacija kriticnih sekcija za HashMapu i Listu Klijenata..
     init_criticalSectionClientList();
     init_criticalSectionHashTable();
 
-    // TESTING HASH FUNCTION...
-    //system("COLOR B");
+    // Ispis svih dostupnih fajlova..
     printf(YELLOW " Dostupni fajlovi:   | \n" RESET);
     printf(MAGNETA " thisfile.bin" YELLOW "        | \n" RESET);
     printf(MAGNETA " novisa.bin" YELLOW "          | \n" RESET);
@@ -302,12 +304,7 @@ int main(void)
     printf(MAGNETA " everything.bin" YELLOW"      | \n" RESET);
     printf(YELLOW " ---------------------\n" RESET);
     
-    if(InitializeWindowsSockets() == false)
-    {
-		// we won't log anything since it will be logged
-		// by InitializeWindowsSockets() function
-		return 1;
-    }
+    if(InitializeWindowsSockets() == false) { return 1; }
     
     // Prepare address information structures
     addrinfo *resultingAddress = NULL;
@@ -317,12 +314,11 @@ int main(void)
     hints.ai_family = AF_INET;       // IPv4 address
     hints.ai_socktype = SOCK_STREAM; // Provide reliable data streaming
     hints.ai_protocol = IPPROTO_TCP; // Use TCP protocol
-    hints.ai_flags = AI_PASSIVE;     // 
+    hints.ai_flags = AI_PASSIVE;     // Flags
 
     // Resolve the server address and port
     iResult = getaddrinfo(NULL, DEFAULT_PORT, &hints, &resultingAddress);
-    if (iResult != 0)
-    {
+    if (iResult != 0) {
         printf("getaddrinfo failed with error: %d\n", iResult);
         WSACleanup();
         return 1;
@@ -341,8 +337,7 @@ int main(void)
         return 1;
     }
 
-    // Setup the TCP listening socket - bind port number and local address 
-    // to socket
+    // Setup the TCP listening socket - bind port number and local address to socket
     iResult = bind( listenSocket, resultingAddress->ai_addr, (int)resultingAddress->ai_addrlen);
     if (iResult == SOCKET_ERROR)
     {
@@ -372,6 +367,7 @@ int main(void)
 
 	printf(YELLOW "Server aktivan, ceka klijentske zahteve!.\n" RESET);
 
+    // Inicijalizacija Parametra koji se šalju Threadovima..
     Parameters* params = (Parameters*)malloc(sizeof(Parameters));
     params->acceptedSocket = acceptedSocket;
     params->listenSocket = listenSocket;
@@ -382,10 +378,7 @@ int main(void)
     handle = CreateThread(NULL, 0, &AcceptClients, params, 0, &dword);
     //////////////////////////////////////////////////////////////////
 
-    int end;
-
-    while (1)
-    {
+    while (1) {
         printf_s("Unesite 0 kako biste ugasili server: ");
         scanf_s("%d",&end);
         if (end == 0) {
@@ -418,7 +411,7 @@ int main(void)
     
     free(params); // Oslobadjanje parametara za Thread..
 
-    // cleanup
+    // cleanup, Kraj
     closesocket(listenSocket);
     closesocket(acceptedSocket);
     WSACleanup();
@@ -428,16 +421,14 @@ int main(void)
 bool InitializeWindowsSockets()
 {
     WSADATA wsaData;
-	// Initialize windows sockets library for this process
-    if (WSAStartup(MAKEWORD(2,2), &wsaData) != 0)
-    {
+    if (WSAStartup(MAKEWORD(2,2), &wsaData) != 0) {
         printf("WSAStartup failed with error: %d\n", WSAGetLastError());
         return false;
     }
 	return true;
 }
 
-bool ReadFilePart(char* fileName, int part,char* fileInput)
+bool ReadFilePart(char* fileName, int part, char* fileInput)
 {
     FILE* fptr;
     char fullUrl[200] = "D:\\Industrijski Komunikacioni Protokoli\\Mrezno\\UDP_TCP\\WinSock_TCP_Blocking\\WinSockServer\\";
@@ -461,8 +452,7 @@ bool ReadFilePart(char* fileName, int part,char* fileInput)
     // Pravljenje stringa, skracivanje buffer-a.
     char ch = '0';
     int cnt = 0;
-    for (int i = 0; i < FILE_SIZE; i++)
-    {
+    for (int i = 0; i < FILE_SIZE; i++) {
         ch = readBuffer[i];
         if (ch != '0' && ch != '1' && ch != ' ')
         {
@@ -472,18 +462,15 @@ bool ReadFilePart(char* fileName, int part,char* fileInput)
         }
     }
 
-    if (part == 5)
-    {
+    if (part == 5) {
         int skip = 4 * (cnt / 5);
         int upis = (cnt / 5);
         memcpy_s(fileInput,upis,readBuffer + skip,upis);
     }
-    else
-    {
+    else {
         int skip = (part - 1) * (cnt / 5);
         int upis = cnt / 5;
         memcpy_s(fileInput, upis, readBuffer + skip, upis);
     }
-
     return true;
 }

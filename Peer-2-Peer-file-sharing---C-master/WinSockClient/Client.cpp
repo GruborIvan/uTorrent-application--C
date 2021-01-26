@@ -145,36 +145,31 @@ int __cdecl main(int argc, char **argv)
 {
     char Port[6];
     int port;
+    int fileSize = 0;
     DWORD dword;
     HANDLE handle;
-    system("COLOR B");
 
     // variable used to store function return value
     int iResult = 0;
 
     // socket used to communicate with server
     SOCKET connectSocket = INVALID_SOCKET;
-
-    SOCKET connectSocketToClients = INVALID_SOCKET;
+    SOCKET connectSocketToClients = INVALID_SOCKET; // Socket za iniciranje P2P konekcije!
 
     SOCKET listenSocketShare = INVALID_SOCKET;     // Socket za slusanje P2P zahteva!
-
     SOCKET acceptedSocketShare = INVALID_SOCKET;     // Accepted socket za P2P!
 
+    // Inicijalizacija Hash tabele za cuvanje delova podataka & inic kriticne sekcije!
     init_fileKeep_table();
-    init_CriticalSection(); // Inicijalizacija Hash tabele za cuvanje delova podataka & inic kriticne sekcije!
+    init_CriticalSection(); 
     
-    do
-    {
+    do {
         printf_s("Unesite Port klijenta: ");
         scanf("%s", Port);                   // Unos Port-a dok ne bude 5-cifreni broj!
     } 
     while (atoi(Port) < 10000 || atoi(Port) > 99999);
 
-    if(InitializeWindowsSockets() == false)
-    {
-		return 1;
-    }
+    if(InitializeWindowsSockets() == false) { return 1;}
 
     connectSocket = socket(AF_INET,SOCK_STREAM,IPPROTO_TCP); // Kreiranje Socket-a za povezivanje na Server!
 
@@ -210,7 +205,6 @@ int __cdecl main(int argc, char **argv)
     // ========================================
 
 
-
     // OPERNING CLIENT LISTENING THREAD...
     ParametersListen* parameters = (ParametersListen*)malloc(sizeof(ParametersListen));
     parameters->acceptedSocketShare = acceptedSocketShare;
@@ -222,7 +216,6 @@ int __cdecl main(int argc, char **argv)
     handle = CreateThread(NULL, 0, &ClientThread, parameters, 0, &dword);
 
     // --------------------------------------------
-    int fileSize = 0;
 
     while (1)
     {
