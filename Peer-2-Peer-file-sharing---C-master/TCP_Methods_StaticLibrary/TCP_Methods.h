@@ -36,7 +36,7 @@ bool AskClientForFilePart(SOCKET *connectSocketToClients, char* fileName);
 
 bool RecieveFilePartFromClient(SOCKET* connectSocketToClients, char* fullFileContent);
 
-char* RecieveClientP2PRequest(SOCKET *socket);
+void RecieveClientP2PRequest(SOCKET *socket, char* buff);
 
 void AnswerP2P_Request(char *fileContent,SOCKET *socket);
 

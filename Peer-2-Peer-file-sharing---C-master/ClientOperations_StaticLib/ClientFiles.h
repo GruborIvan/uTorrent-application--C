@@ -1,5 +1,5 @@
 #pragma once
-#define FILE_PART_CONTENT 536
+#define FILE_PART_CONTENT 1072
 #define FILE_SIZE 2008
 #define FILE_NAME_SIZE 24
 #define FILE_PART_SIZE 512

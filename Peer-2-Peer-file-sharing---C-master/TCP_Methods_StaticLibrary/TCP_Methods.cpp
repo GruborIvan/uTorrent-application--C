@@ -157,18 +157,13 @@ bool RecieveFilePartFromClient(SOCKET* connectSocketToClients, char* fullFileCon
     return true;
 }
 
-char* RecieveClientP2PRequest(SOCKET* socket)
+void RecieveClientP2PRequest(SOCKET* socket,char* buff)
 {
-    // Odgovara na serverske zahteve...
-    char requestedFileName[FILE_NAME_SIZE];
+    int iResult = recv(*socket, buff, FILE_NAME_SIZE, 0);
 
-    int iResult = recv(*socket, (char*)requestedFileName, FILE_NAME_SIZE, 0);
-
-    if (iResult > 0) {
-        return requestedFileName;
-    }
-    else {
-        return NULL;
+    if (iResult <= 0)
+    {
+        printf("Desila se greska prilikom P2P komunikacije! \n");
     }
 }
 

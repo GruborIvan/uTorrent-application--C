@@ -15,11 +15,12 @@
 #define BLUE "\033[94m"
 #define RESET "\033[0m"
 #define MAGNETA "\033[95m"
-#define MAX_CLIENTS 20
+#define MAX_CLIENTS 25
 #define DEFAULT_BUFLEN 512
 #define DEFAULT_PORT "27016"
 #define FILE_PART_SIZE 512
 #define RESPONSE_SIZE 4096
+#define HEAP_BUFFER 10000
 
 // Parametri koji se salju u ClientThread iz AcceptClients, kad se poveze novi klijent..
 typedef struct Parameters
@@ -121,8 +122,9 @@ DWORD WINAPI ClientThread(LPVOID lpParam)
                     }
                     else if (ClientHasFIle(pok->fileName, pok->port))
                     {
-                        response->keep = -1;
+                        // U slucaju da smo datom klijentu vec isporucili taj fajl, necemo opet.
                         fclose(check);
+                        response->keep = -1;
                     }
                     else
                     {
@@ -142,20 +144,18 @@ DWORD WINAPI ClientThread(LPVOID lpParam)
                         // Read ports of clients that contain this file..
                         ReadClientFiles(response->fileName, response->ports);
 
-                        // Ucitavanje portova klienata koji sadrze trazeni fajl!
-                        for (int i = 0; i < 5; i++)
+                        for (int i = 0; i < 5; i++) 
                         {
-                            if (response->ports[i] == 0)
+                            if (response->ports[i] == 0) 
                             {
-                                // Read part of the file specified with i.   File parts: 1-5  //
-                                ReadFilePart(response->fileName, i + 1, response->fileParts[i]);
+                                // Citanje dela fajla i ucitavanje u response.
+                                ReadFilePart(response->fileName,i + 1,response->fileParts[i]);
                             }
                         }
 
                         // Pronadji onaj deo fajla koji treba klijent da sacuva kod sebe...
                         response->keep = 0;
                         response->keep = AddFileToHashTable(response->fileName, pok->port);
-
                     }
 
                     // Slanje Serverskog odgovora Klijentu...
@@ -243,12 +243,15 @@ DWORD WINAPI AcceptClients(LPVOID lpParam)
             {
                 // Postavljanje Socket-a u neblokirajuci rezim..
                 iResult = ioctlsocket(params->acceptedSocket, FIONBIO, &mode);
-                
-                HandleClosingEvidencija[socketCount] = 1; // Indikacija da je zauzeta...
-                params->ThreadLifeIndicator = &HandleClosingEvidencija[socketCount];
 
-                handleList[socketCount] = CreateThread(NULL, 0, &ClientThread, params, 0, &dwordList[socketCount]);
-                socketCount++;
+                for (int i = 0; i < MAX_CLIENTS; i++) {
+                    if (HandleClosingEvidencija[i] == 0) {
+                        HandleClosingEvidencija[i] = 1; // Indikacija da je zauzeta...
+                        params->ThreadLifeIndicator = &HandleClosingEvidencija[i];
+                        handleList[i] = CreateThread(NULL, 0, &ClientThread, params, 0, &dwordList[i]);
+                        break;
+                    }
+                }
             }
 
         }
@@ -431,8 +434,6 @@ bool InitializeWindowsSockets()
 bool ReadFilePart(char* fileName, int part, char* fileInput)
 {
     FILE* fptr;
-    char fullUrl[200] = "D:\\Industrijski Komunikacioni Protokoli\\Mrezno\\UDP_TCP\\WinSock_TCP_Blocking\\WinSockServer\\";
-    strcat_s(fullUrl, fileName);
 
     // ----------------------------------------------------------------------------------
                // CITANJE SADRZAJA FAJLA..
@@ -465,7 +466,7 @@ bool ReadFilePart(char* fileName, int part, char* fileInput)
     if (part == 5) {
         int skip = 4 * (cnt / 5);
         int upis = (cnt / 5);
-        memcpy_s(fileInput,upis,readBuffer + skip,upis);
+        memcpy_s(fileInput, upis, readBuffer + skip, upis);
     }
     else {
         int skip = (part - 1) * (cnt / 5);

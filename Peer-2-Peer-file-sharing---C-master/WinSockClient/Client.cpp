@@ -16,7 +16,7 @@
 #define DEFAULT_PORT 27016
 
 #define FILE_SIZE 2008
-#define FILE_NAME_SIZE 24
+#define FILE_NAME_SIZE 48
 #define FILE_PART_SIZE 512
 #define HASH_TABLE_SIZE 15
 #define RESPONSE_SIZE 4096
@@ -122,7 +122,7 @@ DWORD WINAPI ClientThread(LPVOID lpParam)
             else
             {
                 char reqFile[FILE_NAME_SIZE];
-                strcpy(reqFile, RecieveClientP2PRequest(&parameters.acceptedSocketShare)); // Primanje P2P zahteva!
+                RecieveClientP2PRequest(&parameters.acceptedSocketShare,reqFile);
 
                 if (reqFile == nullptr) {
                     printf_s("Neuspesno preuzimanje P2P zahteva!");
@@ -130,12 +130,15 @@ DWORD WINAPI ClientThread(LPVOID lpParam)
                 }
 
                 int id = hash(reqFile);
-                FileKeep fkp = *GetKeptFileById(id); // Dobavljanje dela fajla koji se cuva na drugom klijentu!
+                FileKeep* fkp = (FileKeep*)malloc(sizeof(FileKeep));
+                FileKeep temp = *GetKeptFileById(id); // Dobavljanje dela fajla koji se cuva na drugom klijentu!
 
-                AnswerP2P_Request(fkp.filePartContent,&parameters.acceptedSocketShare); // Odgovor na P2P zahtev!
+                strcpy_s(fkp->filePartContent,temp.filePartContent);
+
+                AnswerP2P_Request(fkp->filePartContent,&parameters.acceptedSocketShare); // Odgovor na P2P zahtev!
+                free(fkp);
             }
         }
-        //Sleep(1000);
     }
 
     return 0;
@@ -215,14 +218,40 @@ int __cdecl main(int argc, char **argv)
     // Pokretanje Thread-a za osluskivanje pristiglih zahteva za delove fajlova... (Podizanje klijent-serverskog Socket-a).
     handle = CreateThread(NULL, 0, &ClientThread, parameters, 0, &dword);
 
-    // --------------------------------------------
+
+    //--------------------------------------------
+    //----------------- STRESS TEST ---------------
+
+    char* testValues[] = {"movie.bin","extra.bin","novisa.bin","thisfile.bin","chromePlug.bin","svasta.bin","randomFile.bin","extra.bin","tamonekifajl.bin","content.bin","everything.bin"};
+
+    int currentVal = 0;
+    //---------------------------------------------
+    //---------------------------------------------
+    
+    int randSleep = ((rand() % 5) + 1) * 1000;
+    Sleep(randSleep);
+    int round = 0;
+    int num;
 
     while (1)
     {
         ClientRequest* ioc = (ClientRequest*)malloc(sizeof(ClientRequest));
 
-        printf_s("\nUnesite naziv trazenog fajla: [type exit to close]:  ");  // Pitanje za FileName koji se trazi.
-        scanf("%s",ioc->fileName);
+        // TEST
+        if (round < 25)
+        {
+            num = rand() % 10;
+            strcpy(ioc->fileName, testValues[num]);
+            round++;
+        }
+        else
+        {
+            printf_s("\nUnesite naziv trazenog fajla: [type exit to close]:  ");  // Pitanje za FileName koji se trazi.
+            scanf("%s",ioc->fileName);
+        }         
+        //-----
+
+        
 
         if (strcmp(ioc->fileName, "exit") == 0)
         {
@@ -346,9 +375,9 @@ int __cdecl main(int argc, char **argv)
 
             FILE* fp;
             char FileInFolderName[2 * FILE_NAME_SIZE] = "0_RecievedFiles\\Port ";
-            strcat(FileInFolderName,Port);
-            strcat(FileInFolderName, "__");
-            strcat(FileInFolderName, srvResponse->fileName);
+            strcat_s(FileInFolderName,Port);
+            strcat_s(FileInFolderName, "__");
+            strcat_s(FileInFolderName, srvResponse->fileName);
 
             fopen_s(&fp,FileInFolderName,"wb");
 
